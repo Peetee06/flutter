@@ -125,7 +125,7 @@ void main() {
     expect(find.text('removing item'), findsNothing);
   });
 
-  testWidgets('AnimatedList.separated', (WidgetTester tester) async {
+  testWidgets('AnimatedListSeparated', (WidgetTester tester) async {
     Widget builder(BuildContext context, int index, Animation<double> animation) {
       return SizedBox(
         height: 100.0,
@@ -154,12 +154,12 @@ void main() {
           child: Center(child: Text('removing separator')),
         );
       }
-    final GlobalKey<AnimatedListState> listKey = GlobalKey<AnimatedListState>();
+    final GlobalKey<AnimatedListSeparatedState> listKey = GlobalKey<AnimatedListSeparatedState>();
 
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,
-        child: AnimatedList.separated(
+        child: AnimatedListSeparated(
           key: listKey,
           initialItemCount: 2,
           itemBuilder: builder,
@@ -289,6 +289,20 @@ void main() {
     expect(find.byType(SizedBox), findsNothing);
     expect(find.text('removing item'), findsNothing);
     expect(find.text('removing separator'), findsNothing);
+
+    // Test for insertItem on empty list
+    listKey.currentState!.insertItem(0);
+    await tester.pump();
+    expect(find.text('item 0'), findsOneWidget);
+    expect(find.text('separator after item 0'), findsNothing);
+    await tester.pumpAndSettle();
+
+    // Test for insertItem on list with one item
+    listKey.currentState!.insertItem(1);
+    await tester.pump();
+    expect(find.text('separator after item 0'), findsOneWidget);
+    expect(find.text('item 1'), findsOneWidget);
+    expect(find.text('separator after item 1'), findsNothing);
   });
 
   group('SliverAnimatedList', () {
