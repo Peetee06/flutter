@@ -246,6 +246,7 @@ void main() {
     expect(find.text('separator after item 1'), findsOneWidget);
     expect(find.text('item 2'), findsOneWidget);
     expect(find.text('separator after item 2'), findsNothing);
+    await tester.pumpAndSettle();
 
     // Test that removeAllItems throws for AnimatedList.separated
     expect(() => listKey.currentState!.removeAllItems(
@@ -256,6 +257,38 @@ void main() {
       'text',
       contains('Separated list items can not be removed with this method. Use removeAllSeparatedItems instead.'),
     )));
+
+    // Test for removeSeparatedItem when only one item left
+    // Prepare
+    listKey.currentState!.removeAllSeparatedItems(
+      itemRemovalBuilder,
+      separatorRemovalBuilder,
+      duration: const Duration(milliseconds: 100),
+    );
+    await tester.pumpAndSettle();
+    listKey.currentState!.insertItem(0);
+    await tester.pump();
+    expect(find.text('item 0'), findsOneWidget);
+    expect(find.text('separator after item 0'), findsNothing);
+    await tester.pumpAndSettle();
+
+    // Test
+    listKey.currentState!.removeSeparatedItem(
+      0,
+      itemRemovalBuilder,
+      separatorRemovalBuilder,
+      duration: const Duration(milliseconds: 100),
+    );
+
+    await tester.pump();
+    expect(find.text('removing item'), findsOneWidget);
+    expect(find.text('removing separator'), findsNothing);
+    expect(find.text('item 0'), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(find.byType(SizedBox), findsNothing);
+    expect(find.text('removing item'), findsNothing);
+    expect(find.text('removing separator'), findsNothing);
   });
 
   group('SliverAnimatedList', () {

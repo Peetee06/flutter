@@ -251,7 +251,9 @@ class AnimatedListState extends _AnimatedScrollViewState<AnimatedList> {
     if (widget._separated) {
       final int itemIndex = _computeItemIndex(index);
       super.insertItem(itemIndex, duration: duration);
-      super.insertItem(itemIndex + 1, duration: duration);
+      if (!(_isLastItem(itemIndex) && (itemIndex == 0))) {
+        super.insertItem(itemIndex + 1, duration: duration);
+      }
     } else {
       super.insertItem(index, duration: duration);
     }
@@ -283,8 +285,10 @@ class AnimatedListState extends _AnimatedScrollViewState<AnimatedList> {
     }
     final int itemIndex = _computeItemIndex(index);
     super.removeItem(itemIndex, builder, duration: duration);
-    if (!_isFirstItem(itemIndex)) {
+    if (_isLastItem(itemIndex) && !(itemIndex == 0)) {
       super.removeItem(itemIndex - 1, separatorBuilder, duration: duration);
+    } else if (!(_isLastItem(itemIndex) && (itemIndex == 0))) {
+      super.removeItem(itemIndex, separatorBuilder, duration: duration);
     }
   }
 
@@ -315,8 +319,8 @@ class AnimatedListState extends _AnimatedScrollViewState<AnimatedList> {
     return math.max(0, _isNewLastItem(index) ? index * 2 - 1 : index * 2);
   }
 
-  bool _isFirstItem(int index) {
-    return _sliverAnimatedMultiBoxKey.currentState != null && index == 0;
+  bool _isLastItem(int itemIndex) {
+    return _sliverAnimatedMultiBoxKey.currentState != null && _sliverAnimatedMultiBoxKey.currentState!._itemsCount - 1 == itemIndex;
   }
 
   bool _isNewLastItem(int index) {
@@ -325,7 +329,7 @@ class AnimatedListState extends _AnimatedScrollViewState<AnimatedList> {
 
   // TODO(Peetee06): Document this method
   int _computeLengthWithSeparators({required int index, required int length}) {
-    return _isFirstItem(index) ? length * 2 - 1 : length * 2;
+    return (index == 0) ? length * 2 - 1 : length * 2;
   }
 }
 
