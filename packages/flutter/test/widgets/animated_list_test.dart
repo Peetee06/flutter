@@ -125,6 +125,139 @@ void main() {
     expect(find.text('removing item'), findsNothing);
   });
 
+  testWidgets('AnimatedList.separated', (WidgetTester tester) async {
+    Widget builder(BuildContext context, int index, Animation<double> animation) {
+      return SizedBox(
+        height: 100.0,
+        child: Center(
+          child: Text('item $index'),
+        ),
+      );
+    }
+    Widget separatorBuilder(BuildContext context, int index, Animation<double> animation) {
+      return SizedBox(
+        height: 100.0,
+        child: Center(
+          child: Text('separator after item $index'),
+        ),
+      );
+    }
+    Widget itemRemovalBuilder(BuildContext context, Animation<double> animation) {
+        return const SizedBox(
+          height: 100.0,
+          child: Center(child: Text('removing item')),
+        );
+      }
+    Widget separatorRemovalBuilder(BuildContext context, Animation<double> animation) {
+        return const SizedBox(
+          height: 100.0,
+          child: Center(child: Text('removing separator')),
+        );
+      }
+    final GlobalKey<AnimatedListState> listKey = GlobalKey<AnimatedListState>();
+
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: AnimatedList.separated(
+          key: listKey,
+          initialItemCount: 2,
+          itemBuilder: builder,
+          separatorBuilder: separatorBuilder,
+        ),
+      ),
+    );
+
+    final Finder sliverAnimatedList = find.byType(SliverAnimatedList);
+    expect(sliverAnimatedList, findsOneWidget);
+    expect((sliverAnimatedList.evaluate().first.widget as SliverAnimatedList).initialItemCount, 3); // 2 items + 1 separator
+
+    // Test for insertItem
+    listKey.currentState!.insertItem(0);
+    await tester.pump();
+    expect(find.text('item 2'), findsOneWidget);
+    expect(find.text('separator after item 2'), findsNothing);
+    await tester.pumpAndSettle();
+
+    // Test that removeItem throws for AnimatedList.separated
+    expect(() => listKey.currentState!.removeItem(
+      2,
+      (BuildContext context, Animation<double> animation) => const SizedBox.shrink(),
+      duration: const Duration(milliseconds: 100),
+    ), throwsA(isA<Exception>().having(
+      (Exception exception) => exception.toString(),
+      'text',
+      contains('Separated list items can not be removed with this method. Use removeSeparatedItem instead.'),
+    )));
+
+     // Test for removeAllItems
+    listKey.currentState!.removeAllSeparatedItems(
+      itemRemovalBuilder,
+      separatorRemovalBuilder,
+      duration: const Duration(milliseconds: 100),
+    );
+
+    await tester.pump();
+    expect(find.text('removing item'), findsNWidgets(3));
+    expect(find.text('removing separator'), findsNWidgets(2));
+    expect(find.text('item 0'), findsNothing);
+    expect(find.text('separator after item 0'), findsNothing);
+    expect(find.text('item 1'), findsNothing);
+    expect(find.text('separator after item 1'), findsNothing);
+    expect(find.text('item 2'), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(find.text('removing item'), findsNothing);
+    expect(find.text('removing separator'), findsNothing);
+
+    // Test for insertAllItems at the beginning of the list
+    listKey.currentState!.insertAllItems(0, 2);
+    await tester.pump();
+    expect(find.text('item 0'), findsOneWidget);
+    expect(find.text('separator after item 0'), findsOneWidget);
+    expect(find.text('item 1'), findsOneWidget);
+    expect(find.text('separator after item 1'), findsNothing);
+    await tester.pumpAndSettle();
+
+
+    // Test for removeSeparatedItem
+    listKey.currentState!.removeSeparatedItem(
+      1,
+      itemRemovalBuilder,
+      separatorRemovalBuilder,
+      duration: const Duration(milliseconds: 100),
+    );
+
+    await tester.pump();
+    expect(find.text('removing separator'), findsOneWidget);
+    expect(find.text('removing item'), findsOneWidget);
+    expect(find.text('item 1'), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(find.byType(SizedBox), findsNWidgets(1));
+    expect(find.text('removing item'), findsNothing);
+    expect(find.text('removing separator'), findsNothing);
+
+    // Test for insertAllItems at the end of the list
+    listKey.currentState!.insertAllItems(1, 2);
+    await tester.pump();
+    expect(find.text('separator after item 0'), findsOneWidget);
+    expect(find.text('item 1'), findsOneWidget);
+    expect(find.text('separator after item 1'), findsOneWidget);
+    expect(find.text('item 2'), findsOneWidget);
+    expect(find.text('separator after item 2'), findsNothing);
+
+    // Test that removeAllItems throws for AnimatedList.separated
+    expect(() => listKey.currentState!.removeAllItems(
+      (BuildContext context, Animation<double> animation) => const SizedBox.shrink(),
+      duration: const Duration(milliseconds: 100),
+    ), throwsA(isA<Exception>().having(
+      (Exception exception) => exception.toString(),
+      'text',
+      contains('Separated list items can not be removed with this method. Use removeAllSeparatedItems instead.'),
+    )));
+  });
+
   group('SliverAnimatedList', () {
     testWidgets('initialItemCount', (WidgetTester tester) async {
       final Map<int, Animation<double>> animations = <int, Animation<double>>{};

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 
 import 'basic.dart';
@@ -83,7 +85,36 @@ class AnimatedList extends _AnimatedScrollView {
     super.shrinkWrap = false,
     super.padding,
     super.clipBehavior = Clip.hardEdge,
-  }) : assert(initialItemCount >= 0);
+  }) : assert(initialItemCount >= 0),
+       _separated = false;
+
+  AnimatedList.separated({
+    super.key,
+    required AnimatedItemBuilder itemBuilder,
+    required AnimatedItemBuilder separatorBuilder,
+    int initialItemCount = 0,
+    super.scrollDirection = Axis.vertical,
+    super.reverse = false,
+    super.controller,
+    super.primary,
+    super.physics,
+    super.shrinkWrap = false,
+    super.padding,
+    super.clipBehavior = Clip.hardEdge,
+  }) : assert(initialItemCount >= 0),
+        _separated = true,
+       super(
+        initialItemCount: _computeActualChildCount(initialItemCount),
+       itemBuilder: (BuildContext context, int index, Animation<double> animation) {
+          final int itemIndex = index ~/ 2;
+          if (index.isEven) {
+            return itemBuilder(context, itemIndex, animation);
+          }
+          return separatorBuilder(context, itemIndex, animation);
+         },
+       );
+
+  final bool _separated;
 
   /// The state from the closest instance of this class that encloses the given
   /// context.
@@ -150,6 +181,11 @@ class AnimatedList extends _AnimatedScrollView {
 
   @override
   AnimatedListState createState() => AnimatedListState();
+
+  // Helper method to compute the actual child count for the separated constructor.
+  static int _computeActualChildCount(int itemCount) {
+    return math.max(0, itemCount * 2 - 1);
+  }
 }
 
 /// The [AnimatedListState] for [AnimatedList], a scrolling list container that animates items when they are
@@ -208,6 +244,88 @@ class AnimatedListState extends _AnimatedScrollViewState<AnimatedList> {
       ),
       widget.scrollDirection,
     );
+  }
+
+  @override
+  void insertItem(int index, { Duration duration = _kDuration }) {
+    if (widget._separated) {
+      final int itemIndex = _computeItemIndex(index);
+      super.insertItem(itemIndex, duration: duration);
+      super.insertItem(itemIndex + 1, duration: duration);
+    } else {
+      super.insertItem(index, duration: duration);
+    }
+  }
+
+  @override
+  void insertAllItems(int index, int length, { Duration duration = _kDuration, bool isAsync = false }) {
+    if (widget._separated) {
+      final int itemIndex = _computeItemIndex(index);
+      final int lengthWithSeparators = _sliverAnimatedMultiBoxKey.currentState != null && _sliverAnimatedMultiBoxKey.currentState!._itemsCount == 0 ? length * 2 - 1 : length * 2;
+      super.insertAllItems(itemIndex, lengthWithSeparators, duration: duration, isAsync: isAsync);
+    } else {
+      super.insertAllItems(index, length, duration: duration, isAsync: isAsync);
+    }
+  }
+
+  @override
+  void removeItem(int index, AnimatedRemovedItemBuilder builder, { Duration duration = _kDuration }) {
+    if (widget._separated) {
+      throw Exception('Separated list items can not be removed with this method. Use removeSeparatedItem instead.');
+    }
+    super.removeItem(index, builder, duration: duration);
+  }
+
+  // TODO(Peetee06): Add test on AnimatedList to throw when using this
+  void removeSeparatedItem(int index, AnimatedRemovedItemBuilder builder, AnimatedRemovedItemBuilder separatorBuilder, { Duration duration = _kDuration }) {
+    if (!widget._separated) {
+      throw Exception('List items can not be removed with this method. Use removeItem instead.');
+    }
+    final int itemIndex = _computeItemIndex(index);
+    super.removeItem(itemIndex, builder, duration: duration);
+    if (!_isFirstItem(itemIndex)) {
+      super.removeItem(itemIndex - 1, separatorBuilder, duration: duration);
+    }
+  }
+
+  @override
+  void removeAllItems(AnimatedRemovedItemBuilder builder, { Duration duration = _kDuration }) {
+    if (widget._separated) {
+      throw Exception('Separated list items can not be removed with this method. Use removeAllSeparatedItems instead.');
+    }
+    super.removeAllItems(builder, duration: duration);
+  }
+
+  void removeAllSeparatedItems(AnimatedRemovedItemBuilder builder, AnimatedRemovedItemBuilder separatorBuilder, { Duration duration = _kDuration }) {
+    if (widget._separated) {
+      for (int i = _sliverAnimatedMultiBoxKey.currentState!._itemsCount - 1; i >= 0 ; i--) {
+        if (i.isEven) {
+          super.removeItem(i, builder, duration: duration);
+        } else {
+          super.removeItem(i, separatorBuilder, duration: duration);
+        }
+      }
+    } else {
+      throw Exception('List items can not be removed with this method. Use removeAllItems instead.');
+    }
+  }
+
+  // Helper method to compute the actual index for the separated item.
+  int _computeItemIndex(int index) {
+    return math.max(0, _isNewLastItem(index) ? index * 2 - 1 : index * 2);
+  }
+
+  bool _isFirstItem(int index) {
+    return _sliverAnimatedMultiBoxKey.currentState != null && index == 0;
+  }
+
+  bool _isNewLastItem(int index) {
+    return _sliverAnimatedMultiBoxKey.currentState != null && _sliverAnimatedMultiBoxKey.currentState!._itemsCount == index * 2 - 1;
+  }
+
+  // TODO(Peetee06): Document this method
+  int _computeLengthWithSeparators({required int index, required int length}) {
+    return _isFirstItem(index) ? length * 2 - 1 : length * 2;
   }
 }
 
