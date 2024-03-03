@@ -49,13 +49,21 @@ class _AnimatedListSeparatedSampleState extends State<AnimatedListSeparatedSampl
     );
   }
 
+  // Used to build separators that haven't been removed.
+  Widget _buildSeparator(BuildContext context, int index, Animation<double> animation) {
+    return ItemSeparator(
+      animation: animation,
+      item: _list[index],
+    );
+  }
+
   /// The builder function used to build items that have been removed.
   ///
   /// Used to build an item after it has been removed from the list. This method
   /// is needed because a removed item remains visible until its animation has
   /// completed (even though it's gone as far as this ListModel is concerned).
   /// The widget will be used by the [AnimatedListSeparatedState.removeSeparatedItem] method's
-  /// [AnimatedRemovedItemBuilder] parameter.
+  /// `itemBuilder` parameter.
   Widget _buildRemovedItem(int item, BuildContext context, Animation<double> animation) {
     return CardItem(
       animation: animation,
@@ -64,12 +72,15 @@ class _AnimatedListSeparatedSampleState extends State<AnimatedListSeparatedSampl
     );
   }
 
-  Widget _buildRemovedSeparator(int index , BuildContext context, Animation<double> animation) => SizeTransition(
+  // Build a separator for items that have been removed from the list.
+  /// The widget will be used by the [AnimatedListSeparatedState.removeSeparatedItem] method's
+  /// `separatorBuilder` parameter.
+  Widget _buildRemovedSeparator(int item , BuildContext context, Animation<double> animation) => SizeTransition(
                 sizeFactor: animation,
-                child: ColoredBox(
-                  color: Colors.orange ,
-                  child: SizedBox(width: double.infinity, child: Text('Removing Divider $index')),
-                ),
+                child: ItemSeparator(
+                  animation: animation,
+                  item: item,
+                )
               );
 
   // Insert the "next item" into the list model.
@@ -113,15 +124,9 @@ class _AnimatedListSeparatedSampleState extends State<AnimatedListSeparatedSampl
             key: _listKey,
             initialItemCount: _list.length,
             itemBuilder: _buildItem,
-            separatorBuilder: (BuildContext context, int index, Animation<double> animation) => SizeTransition(
-                sizeFactor: animation,
-                child: ColoredBox(
-                  color: Colors.orange,
-                  child: SizedBox(width: double.infinity, child: Text('Divider $index')),
-                ),
-              ),
+            separatorBuilder: _buildSeparator,
+            ),
           ),
-        ),
       ),
     );
   }
@@ -161,13 +166,16 @@ class ListModel<E> {
   E removeAt(int index) {
     final E removedItem = _items.removeAt(index);
     if (removedItem != null) {
+      final bool isLastItem = index == length;
+      // If the removed item is the last item in the list, the separator of the preceding item is removed.
+      final E itemOfRemovedSeparator = isLastItem && length > 0 ? _items[index - 1] : removedItem;
       _animatedListSeparated!.removeSeparatedItem(
         index,
         (BuildContext context, Animation<double> animation) {
           return removedItemBuilder(removedItem, context, animation);
         },
         (BuildContext context, Animation<double> animation) {
-          return removedSeparatorBuilder(removedItem, context, animation);
+          return removedSeparatorBuilder(itemOfRemovedSeparator, context, animation);
         },
       );
     }
@@ -186,7 +194,7 @@ class ListModel<E> {
 ///
 /// The text is displayed in bright green if [selected] is
 /// true. This widget's height is based on the [animation] parameter, it
-/// varies from 0 to 128 as the animation varies from 0.0 to 1.0.
+/// varies from 0 to 80 as the animation varies from 0.0 to 1.0.
 class CardItem extends StatelessWidget {
   const CardItem({
     super.key,
@@ -221,6 +229,42 @@ class CardItem extends StatelessWidget {
               child: Center(
                 child: Text('Item $item', style: textStyle),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Displays its integer item as 'separator N' on a Card whose color is based on
+/// the corresponding item's value.
+///
+/// This widget's height is based on the [animation] parameter, it
+/// varies from 0 to 40 as the animation varies from 0.0 to 1.0.
+class ItemSeparator extends StatelessWidget {
+  const ItemSeparator({
+    super.key,
+    required this.animation,
+    required this.item,
+  }) : assert(item >= 0);
+
+  final Animation<double> animation;
+  final int item;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle textStyle = Theme.of(context).textTheme.headlineSmall!;
+    return Padding(
+      padding: const EdgeInsets.all(2.0),
+      child: SizeTransition(
+        sizeFactor: animation,
+        child: SizedBox(
+          height: 40.0,
+          child: Card(
+            color: Colors.primaries[item % Colors.primaries.length],
+            child: Center(
+              child: Text('Separator $item', style: textStyle),
             ),
           ),
         ),
